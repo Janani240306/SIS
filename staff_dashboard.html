@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Staff Portal</title>
+    <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-database-compat.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.23/jspdf.plugin.autotable.min.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Segoe UI', sans-serif; display: flex; background: #f0f2f5; }
+        .sidebar { width: 250px; background: #2c3e50; height: 100vh; color: white; padding: 20px; position: fixed; }
+        .main { margin-left: 250px; padding: 30px; width: calc(100% - 250px); }
+        .card { background: white; padding: 25px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); margin-bottom: 25px; }
+        .form-group { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; margin-bottom: 15px; }
+        input, select { padding: 12px; border: 1px solid #ddd; border-radius: 6px; width: 100%; font-size: 14px; }
+        .sub-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 8px; }
+        table { width: 100%; border-collapse: collapse; margin-top: 20px; background: white; border-radius: 8px; overflow: hidden; }
+        th, td { border: 1px solid #eee; padding: 15px; text-align: left; cursor: pointer; }
+        th { background: #3498db; color: white; font-weight: 600; }
+        tr:hover { background: #f8f9fa; transition: 0.2s; }
+        .btn-action { background: #27ae60; color: white; padding: 15px; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; width: 100%; font-size: 16px; margin-top: 15px; transition: 0.3s; }
+        .btn-pdf { background: #e67e22; color: white; padding: 10px 20px; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; }
+        .logout { color: #e74c3c; cursor: pointer; margin-top: 30px; display: block; text-decoration: none; font-weight: bold; font-size: 1.1em; }
+        .section-h { color: #2c3e50; border-left: 5px solid #3498db; padding-left: 10px; margin: 20px 0 15px 0; }
+        .nav-link { color: #bdc3c7; cursor: pointer; text-decoration: none; display: block; margin: 10px 0; }
+        .nav-link:hover { color: white; }
+        
+        /* Action Buttons Style */
+        .btn-view { background: #3498db; color: white; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer; font-size: 12px; margin-bottom: 5px; display: block; width: 100%; }
+        .btn-delete { background: #e74c3c; color: white; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer; font-size: 12px; display: block; width: 100%; }
+        .btn-delete:hover { background: #c0392b; }
+    </style>
+</head>
+<body>
+    <div class="sidebar">
+        <h2>Staff</h2><br><hr><br>
+        <p onclick="location.reload()" style="cursor:pointer">Dashboard</p><br>
+        <a href="#" onclick="handleLogout()" class="logout">Logout</a>
+    </div>
+
+    <div class="main">
+        <div class="card">
+            <h3 class="section-h">Student Details</h3>
+            <div class="form-group">
+                <input type="text" id="roll" placeholder="Roll No">
+                <input type="text" id="name" placeholder="Name">
+                <input type="text" id="course" placeholder="Department/Course">
+                <input type="number" id="totalFees" placeholder="Total Fees">
+                <input type="number" id="paidFees" placeholder="Paid Fees">
+                <input type="text" id="att" placeholder="Attendance %">
+            </div>
+
+            <h3 class="section-h">Unique Evaluation Metrics</h3>
+            <div class="form-group">
+                <select id="conduct">
+                    <option value="">Student Conduct/Behavior</option>
+                    <option value="Excellent">Excellent</option>
+                    <option value="Good">Good</option>
+                    <option value="Average">Average</option>
+                </select>
+                <input type="text" id="sports" placeholder="Sports Achievements">
+                <input type="number" id="project" placeholder="Project Progress %">
+            </div>
+
+            <h3 class="section-h">Detailed Academic Marks (6 Subjects)</h3>
+            <div class="form-group">
+                <div class="sub-row"><input type="text" class="sn" placeholder="Subject 1"> <input type="number" class="sm" placeholder="Mark"></div>
+                <div class="sub-row"><input type="text" class="sn" placeholder="Subject 2"> <input type="number" class="sm" placeholder="Mark"></div>
+                <div class="sub-row"><input type="text" class="sn" placeholder="Subject 3"> <input type="number" class="sm" placeholder="Mark"></div>
+                <div class="sub-row"><input type="text" class="sn" placeholder="Subject 4"> <input type="number" class="sm" placeholder="Mark"></div>
+                <div class="sub-row"><input type="text" class="sn" placeholder="Subject 5"> <input type="number" class="sm" placeholder="Mark"></div>
+                <div class="sub-row"><input type="text" class="sn" placeholder="Subject 6"> <input type="number" class="sm" placeholder="Mark"></div>
+            </div>
+            <button class="btn-action" id="actionBtn" onclick="saveData()">Save</button>
+        </div>
+
+        <div class="card">
+            <div style="display:flex; justify-content: space-between; align-items: center;">
+                <h3>Active Student Directory</h3>
+                <button class="btn-pdf" onclick="downloadPDF()">Download Master Report</button>
+            </div>
+            <table id="stTable">
+                <thead><tr><th>Roll No</th><th>Name</th><th>Course</th><th>Pending</th><th>Att %</th><th style="width:120px">Actions</th></tr></thead>
+                <tbody id="stBody"></tbody>
+            </table>
+        </div>
+    </div>
+
+    <script>
+        const firebaseConfig = {
+            apiKey: "AIzaSyDjCwwm3jJ1NLJtUdYoWSpanrlZjMYMhCc",
+            authDomain: "mysisproject-1ceb9.firebaseapp.com",
+            projectId: "mysisproject-1ceb9",
+            storageBucket: "mysisproject-1ceb9.firebasestorage.app",
+            messagingSenderId: "783076340672",
+            appId: "1:783076340672:web:f91b6df44337767d0c8e25",
+            databaseURL: "https://mysisproject-1ceb9-default-rtdb.firebaseio.com/"
+        };
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.database();
+        const currentUser = localStorage.getItem('currentUser') || "Unknown Staff";
+
+        let isEditing = false;
+
+        function saveData() {
+            const roll = document.getElementById('roll').value;
+            const name = document.getElementById('name').value;
+            if(!roll || !name) return alert("Error: Roll No and Name are mandatory!");
+
+            const sn = document.querySelectorAll('.sn'), sm = document.querySelectorAll('.sm');
+            let mList = [];
+            for(let i=0; i<6; i++) { 
+                mList.push({ s: sn[i].value || `Sub ${i+1}`, v: parseInt(sm[i].value) || 0 }); 
+            }
+
+            const total = parseFloat(document.getElementById('totalFees').value) || 0;
+            const paid = parseFloat(document.getElementById('paidFees').value) || 0;
+
+            const studentData = {
+                name: name,
+                course: document.getElementById('course').value,
+                totalFees: total,
+                paidFees: paid,
+                pendingFees: total - paid,
+                att: document.getElementById('att').value,
+                conduct: document.getElementById('conduct').value,
+                sports: document.getElementById('sports').value,
+                project: document.getElementById('project').value,
+                marks: mList
+            };
+
+            db.ref('students/' + roll).set(studentData).then(() => {
+                db.ref('activity_logs').push({
+                    user: currentUser,
+                    role: "Staff",
+                    action: isEditing ? `Edited Data for Roll: ${roll}` : `Saved New Data for Roll: ${roll}`,
+                    time: new Date().toLocaleString()
+                });
+
+                alert(isEditing ? "Student Record Updated!" : "Student Record Saved!");
+                clearForm();
+            });
+        }
+
+        db.ref('students').on('value', (snapshot) => {
+            const data = snapshot.val();
+            let html = "";
+            for (let roll in data) {
+                const s = data[roll];
+                html += `<tr>
+                    <td onclick="editRow('${roll}')">${roll}</td>
+                    <td onclick="editRow('${roll}')">${s.name}</td>
+                    <td onclick="editRow('${roll}')">${s.course}</td>
+                    <td onclick="editRow('${roll}')">₹${s.pendingFees}</td>
+                    <td onclick="editRow('${roll}')">${s.att}%</td>
+                    <td>
+                        <button class="btn-view" onclick="viewFullDetails('${roll}')">View Info</button>
+                        <button class="btn-delete" onclick="deleteStudent('${roll}')">Delete</button>
+                    </td>
+                </tr>`;
+            }
+            document.getElementById('stBody').innerHTML = html;
+        });
+
+        // Student-ai delete panna intha function
+        function deleteStudent(roll) {
+            if(confirm(`Are you sure you want to permanently delete Roll No: ${roll}? This cannot be undone.`)) {
+                db.ref('students/' + roll).remove().then(() => {
+                    db.ref('activity_logs').push({
+                        user: currentUser,
+                        role: "Staff",
+                        action: `Deleted Student Record: ${roll}`,
+                        time: new Date().toLocaleString()
+                    });
+                    alert("Student data deleted successfully!");
+                }).catch((error) => {
+                    alert("Error deleting record: " + error.message);
+                });
+            }
+        }
+
+        function viewFullDetails(roll) {
+            db.ref('students/' + roll).once('value', (snap) => {
+                const s = snap.val();
+                let marksText = s.marks.map(m => `${m.s}: ${m.v}`).join('\n');
+                
+                alert(`--- FULL STUDENT DETAILS ---
+Roll No: ${roll}
+Name: ${s.name}
+Course: ${s.course}
+---------------------------
+Attendance: ${s.att}%
+Conduct: ${s.conduct}
+Sports: ${s.sports || 'None'}
+Project Progress: ${s.project}%
+---------------------------
+FEES STATUS:
+Total: ₹${s.totalFees}
+Paid: ₹${s.paidFees}
+Pending: ₹${s.pendingFees}
+---------------------------
+ACADEMIC MARKS:
+${marksText}`);
+            });
+        }
+
+        function editRow(roll) {
+            db.ref('students/' + roll).once('value', (snap) => {
+                const s = snap.val();
+                document.getElementById('roll').value = roll;
+                document.getElementById('name').value = s.name;
+                document.getElementById('course').value = s.course;
+                document.getElementById('totalFees').value = s.totalFees;
+                document.getElementById('paidFees').value = s.paidFees;
+                document.getElementById('att').value = s.att;
+                document.getElementById('conduct').value = s.conduct;
+                document.getElementById('sports').value = s.sports;
+                document.getElementById('project').value = s.project;
+                const sn = document.querySelectorAll('.sn'), sm = document.querySelectorAll('.sm');
+                s.marks.forEach((m, j) => { sn[j].value = m.s; sm[j].value = m.v; });
+                isEditing = true;
+                document.getElementById('actionBtn').innerText = "Update & Save";
+                document.getElementById('actionBtn').style.background = "#e67e22";
+                window.scrollTo(0,0);
+            });
+        }
+
+        function clearForm() {
+            document.querySelectorAll('input').forEach(i => i.value = "");
+            document.getElementById('conduct').value = "";
+            isEditing = false;
+            document.getElementById('actionBtn').innerText = "Save";
+            document.getElementById('actionBtn').style.background = "#27ae60";
+        }
+
+        function handleLogout() {
+            db.ref('activity_logs').push({
+                user: currentUser,
+                role: "Staff",
+                action: "Logout",
+                time: new Date().toLocaleString()
+            }).then(() => {
+                window.location.href = "index.html";
+            });
+        }
+
+        function downloadPDF() {
+            const { jsPDF } = window.jspdf; 
+            const doc = new jsPDF();
+            doc.text("University Master Student Report", 14, 15);
+            doc.autoTable({ html: '#stTable', startY: 20 });
+            doc.save("Master_Database.pdf");
+        }
+    </script>
+</body>
+</html>

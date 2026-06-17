@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Login</title>
+    <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-database-compat.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    
+    <style>
+        body {
+            margin: 0; font-family: 'Segoe UI', sans-serif;
+            background: linear-gradient(rgba(0,0,0,0.6), rgba(0,0,0,0.6)), url('https://images.unsplash.com/photo-1523050853063-91589436026e?auto=format&fit=crop&w=1350&q=80');
+            background-size: cover; height: 100vh; display: flex; justify-content: center; align-items: center;
+        }
+        .login-card {
+            background: rgba(255, 255, 255, 0.95); padding: 40px; border-radius: 15px; width: 350px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.3); text-align: center;
+        }
+        .tabs { display: flex; margin-bottom: 20px; border-bottom: 2px solid #eee; }
+        .tab { flex: 1; padding: 10px; cursor: pointer; color: #777; font-weight: bold; }
+        .tab.active { color: #2c3e50; border-bottom: 3px solid #3498db; }
+        
+        /* Input Container for Eye Icon */
+        .password-container { position: relative; width: 100%; }
+        
+        input { width: 100%; padding: 12px; margin: 10px 0; border: 1px solid #ddd; border-radius: 5px; box-sizing: border-box; }
+        
+        .toggle-password {
+            position: absolute; right: 12px; top: 50%; transform: translateY(-50%);
+            cursor: pointer; color: #7f8c8d;
+        }
+
+        .btn { width: 100%; padding: 12px; background: #3498db; border: none; color: white; border-radius: 5px; cursor: pointer; font-size: 16px; transition: 0.3s; margin-top: 10px; }
+        .btn:hover { background: #2980b9; }
+    </style>
+</head>
+<body>
+    <div class="login-card">
+        <h2 style="color:#2c3e50">Student Information System</h2>
+        <div class="tabs">
+            <div id="staffTab" class="tab active" onclick="switchUser('staff')">Staff/Admin</div>
+            <div id="studentTab" class="tab" onclick="switchUser('student')">Student</div>
+        </div>
+        <input type="text" id="userid" placeholder="Username">
+        
+        <div class="password-container">
+            <input type="password" id="password" placeholder="Password">
+            <i class="fa-solid fa-eye toggle-password" id="eyeIcon" onclick="togglePassword()"></i>
+        </div>
+
+        <button class="btn" onclick="validate()">Login</button>
+    </div>
+
+    <script>
+        const firebaseConfig = {
+            apiKey: "AIzaSyDjCwwm3jJ1NLJtUdYoWSpanrlZjMYMhCc",
+            authDomain: "mysisproject-1ceb9.firebaseapp.com",
+            projectId: "mysisproject-1ceb9",
+            storageBucket: "mysisproject-1ceb9.firebasestorage.app",
+            messagingSenderId: "783076340672",
+            appId: "1:783076340672:web:f91b6df44337767d0c8e25",
+            databaseURL: "https://mysisproject-1ceb9-default-rtdb.firebaseio.com/"
+        };
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.database();
+
+        let currentRole = 'staff';
+        function switchUser(role) {
+            currentRole = role;
+            document.getElementById('staffTab').classList.toggle('active', role === 'staff');
+            document.getElementById('studentTab').classList.toggle('active', role === 'student');
+            document.getElementById('userid').placeholder = (role === 'staff') ? "Username" : "Roll Number";
+        }
+
+        // New Function to Toggle Password Visibility
+        function togglePassword() {
+            const passwordField = document.getElementById('password');
+            const eyeIcon = document.getElementById('eyeIcon');
+            
+            if (passwordField.type === "password") {
+                passwordField.type = "text";
+                eyeIcon.classList.remove('fa-eye');
+                eyeIcon.classList.add('fa-eye-slash');
+            } else {
+                passwordField.type = "password";
+                eyeIcon.classList.remove('fa-eye-slash');
+                eyeIcon.classList.add('fa-eye');
+            }
+        }
+
+        function logActivity(user, role, type) {
+            db.ref('activity_logs').push({
+                user: user,
+                role: role,
+                action: type,
+                time: new Date().toLocaleString()
+            });
+        }
+
+        function validate() {
+            const user = document.getElementById('userid').value;
+            const pass = document.getElementById('password').value;
+
+            if (currentRole === 'staff') {
+                if (pass === "ccet") {
+                    logActivity(user, "Admin", "Login");
+                    window.location.href = "admin_dashboard.html";
+                } else if (pass === "chettinad12") {
+                    logActivity(user, "Staff", "Login");
+                    localStorage.setItem('currentUser', user);
+                    window.location.href = "staff_dashboard.html";
+                } else {
+                    alert("Incorrect Password!");
+                }
+            } else {
+                if (pass === "chettinad") {
+                    if(!user) return alert("Please enter your Roll Number");
+                    logActivity(user, "Student", "Login");
+                    localStorage.setItem('currentStudentRoll', user);
+                    window.location.href = "student_dashboard.html";
+                } else {
+                    alert("Incorrect Student Password!");
+                }
+            }
+        }
+    </script>
+</body>
+</html>

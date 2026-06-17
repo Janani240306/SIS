@@ -1,0 +1,219 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Student Portal</title>
+    <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-database-compat.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Segoe UI', sans-serif; display: flex; background: #f0f2f5; }
+        
+        /* Sidebar Styles */
+        .sidebar { width: 250px; background: #2c3e50; height: 100vh; color: white; padding: 20px; position: fixed; }
+        .sidebar h2 { margin-bottom: 20px; font-size: 22px; }
+        .sidebar hr { border: 0.5px solid #3e4f5f; margin-bottom: 20px; }
+        .sidebar p { margin: 15px 0; cursor: pointer; color: #bdc3c7; }
+        .sidebar p:hover { color: white; }
+        
+        /* Main Content Area */
+        .main { margin-left: 250px; padding: 30px; width: calc(100% - 250px); }
+        
+        .header-box { display: flex; justify-content: space-between; align-items: center; margin-bottom: 25px; }
+        .welcome-text h2 { color: #2c3e50; }
+        
+        .card { background: white; padding: 25px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); margin-bottom: 25px; }
+        .section-h { color: #2c3e50; border-left: 5px solid #3498db; padding-left: 10px; margin-bottom: 20px; font-size: 18px; }
+        
+        /* Layout Grid */
+        .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+        .info-row { display: flex; justify-content: space-between; padding: 12px 0; border-bottom: 1px solid #f0f0f0; }
+        .label { font-weight: 600; color: #7f8c8d; }
+        .val { font-weight: bold; color: #2c3e50; }
+        
+        /* Table Styles */
+        table { width: 100%; border-collapse: collapse; margin-top: 15px; }
+        th, td { padding: 15px; text-align: left; border-bottom: 1px solid #eee; }
+        th { background: #3498db; color: white; }
+        .status-pass { color: #27ae60; font-weight: bold; }
+        .status-fail { color: #e74c3c; font-weight: bold; }
+
+        /* Buttons */
+        .btn-pdf { background: #e67e22; color: white; padding: 12px 25px; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; transition: 0.3s; }
+        .btn-pdf:hover { background: #d35400; }
+        .logout { color: #e74c3c; cursor: pointer; text-decoration: none; font-weight: bold; margin-top: 20px; display: block; }
+    </style>
+</head>
+<body>
+
+    <div class="sidebar">
+        <h2>Student</h2>
+        <hr>
+        <p onclick="location.reload()">Dashboard</p>
+        <br>
+        <a href="#" onclick="handleStudentLogout()" class="logout">Logout</a>
+    </div>
+
+    <div class="main">
+        <div class="header-box">
+            <div class="welcome-text">
+                <h2 id="dispName">Welcome, Student</h2>
+                <p id="dispRoll" style="color: #7f8c8d;">Roll No: --</p>
+            </div>
+            <button class="btn-pdf" onclick="downloadReport()">Download PDF Report</button>
+        </div>
+
+        <div class="grid">
+            <div class="card">
+                <h3 class="section-h">Academic Profile</h3>
+                <div class="info-row"><span class="label">Course</span> <span class="val" id="dispCourse">-</span></div>
+                <div class="info-row"><span class="label">Attendance</span> <span class="val" id="dispAtt">-</span></div>
+                <div class="info-row"><span class="label">Conduct</span> <span class="val" id="dispConduct">-</span></div>
+                <div class="info-row"><span class="label">Sports</span> <span class="val" id="dispSports">-</span></div>
+            </div>
+
+            <div class="card">
+                <h3 class="section-h">Fee Status</h3>
+                <div class="info-row"><span class="label">Total Fees</span> <span class="val" id="dispTotal">-</span></div>
+                <div class="info-row"><span class="label">Paid Fees</span> <span class="val" id="dispPaid">-</span></div>
+                <div class="info-row" style="background: #fff9e6; border-radius: 5px; padding: 12px; margin-top: 5px;">
+                    <span class="label" style="color: #856404;">Pending Balance</span> 
+                    <span class="val" id="dispPending" style="color: #856404;">-</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="card">
+            <h3 class="section-h">Academic Performance</h3>
+            <table id="marksTable">
+                <thead>
+                    <tr>
+                        <th>Subject</th>
+                        <th>Marks</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody id="marksBody"></tbody>
+            </table>
+        </div>
+    </div>
+
+    <script>
+        const firebaseConfig = {
+            apiKey: "AIzaSyDjCwwm3jJ1NLJtUdYoWSpanrlZjMYMhCc",
+            authDomain: "mysisproject-1ceb9.firebaseapp.com",
+            projectId: "mysisproject-1ceb9",
+            storageBucket: "mysisproject-1ceb9.firebasestorage.app",
+            messagingSenderId: "783076340672",
+            appId: "1:783076340672:web:f91b6df44337767d0c8e25",
+            databaseURL: "https://mysisproject-1ceb9-default-rtdb.firebaseio.com/"
+        };
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.database();
+
+        const currentRoll = localStorage.getItem('currentStudentRoll');
+
+        if (!currentRoll) {
+            window.location.href = "index.html";
+        } else {
+            db.ref('students/' + currentRoll).on('value', (snapshot) => {
+                const data = snapshot.val();
+                if (data) {
+                    document.getElementById('dispName').innerText = "Welcome, " + data.name;
+                    document.getElementById('dispRoll').innerText = "Roll No: " + currentRoll;
+                    document.getElementById('dispCourse').innerText = data.course;
+                    document.getElementById('dispAtt').innerText = data.att + "%";
+                    document.getElementById('dispConduct').innerText = data.conduct;
+                    document.getElementById('dispSports').innerText = data.sports || "None";
+                    document.getElementById('dispTotal').innerText = "₹" + data.totalFees;
+                    document.getElementById('dispPaid').innerText = "₹" + data.paidFees;
+                    document.getElementById('dispPending').innerText = "₹" + (data.totalFees - data.paidFees);
+
+                    let html = "";
+                    if(data.marks) {
+                        data.marks.forEach(m => {
+                            let status = m.v >= 50 ? "PASS" : "FAIL";
+                            let sClass = m.v >= 50 ? "status-pass" : "status-fail";
+                            html += `<tr><td>${m.s}</td><td>${m.v}</td><td class="${sClass}">${status}</td></tr>`;
+                        });
+                    }
+                    document.getElementById('marksBody').innerHTML = html;
+                }
+            });
+        }
+
+        function handleStudentLogout() {
+            db.ref('activity_logs').push({
+                user: currentRoll || "Unknown Student",
+                role: "Student",
+                action: "Logout",
+                time: new Date().toLocaleString()
+            }).then(() => {
+                localStorage.removeItem('currentStudentRoll');
+                window.location.href = "index.html";
+            });
+        }
+
+        function downloadReport() {
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF();
+
+            const name = document.getElementById('dispName').innerText;
+            const roll = document.getElementById('dispRoll').innerText;
+            const course = document.getElementById('dispCourse').innerText;
+            const total = document.getElementById('dispTotal').innerText;
+            const paid = document.getElementById('dispPaid').innerText;
+            const pending = document.getElementById('dispPending').innerText;
+
+            doc.setFontSize(18);
+            doc.setTextColor(44, 62, 80);
+            doc.text("STUDENT REPORT CARD", 105, 20, { align: 'center' });
+            doc.setDrawColor(52, 152, 219);
+            doc.line(14, 25, 196, 25);
+
+            doc.setFontSize(12);
+            doc.setTextColor(0, 0, 0);
+            doc.text(name, 14, 40);
+            doc.text(roll, 14, 47);
+            doc.text("Course: " + course, 14, 54);
+
+            doc.setFontSize(14);
+            doc.text("Fee Details", 140, 40);
+            doc.setFontSize(10);
+            doc.text("Total: " + total, 140, 47);
+            doc.text("Paid: " + paid, 140, 53);
+            doc.text("Pending: " + pending, 140, 59);
+
+            doc.setFillColor(52, 152, 219);
+            doc.rect(14, 75, 182, 10, 'F');
+            doc.setTextColor(255, 255, 255);
+            doc.text("Subject", 20, 82);
+            doc.text("Marks", 100, 82);
+            doc.text("Status", 160, 82);
+
+            doc.setTextColor(0, 0, 0);
+            let y = 92;
+            const rows = document.querySelectorAll("#marksBody tr");
+            rows.forEach((row) => {
+                const cells = row.querySelectorAll("td");
+                if(cells.length > 0) {
+                    doc.text(cells[0].innerText, 20, y);
+                    doc.text(cells[1].innerText, 100, y);
+                    doc.text(cells[2].innerText, 160, y);
+                    doc.setDrawColor(230, 230, 230);
+                    doc.line(14, y + 2, 196, y + 2);
+                    y += 10;
+                }
+            });
+
+            doc.setFontSize(9);
+            doc.setTextColor(150, 150, 150);
+            doc.text("Generated by SIS Cloud on " + new Date().toLocaleString(), 105, 285, { align: 'center' });
+            doc.save("Student_Report_" + currentRoll + ".pdf");
+        }
+    </script>
+</body>
+</html>
